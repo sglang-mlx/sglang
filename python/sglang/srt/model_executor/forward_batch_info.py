@@ -168,6 +168,9 @@ class ForwardMode(IntEnum):
     def is_cpu_graph(self):
         return self == ForwardMode.DECODE
 
+    def is_mlx_graph(self):
+        return self == ForwardMode.DECODE
+
     def is_split_prefill(self):
         return self == ForwardMode.SPLIT_PREFILL
 

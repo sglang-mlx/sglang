@@ -598,6 +598,10 @@ def get_available_gpu_memory(
             # memory metric instead.
             free_gpu_memory = psutil.virtual_memory().available
         free_gpu_memory, total_gpu_memory = torch.musa.mem_get_info()
+    elif device == "mlx":
+        # MLX uses unified memory — report available system memory (same as CPU)
+        free_gpu_memory = psutil.virtual_memory().available
+        total_gpu_memory = psutil.virtual_memory().total
 
     if distributed:
         tensor = torch.tensor(free_gpu_memory, dtype=torch.float32)
