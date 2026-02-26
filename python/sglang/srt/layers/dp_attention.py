@@ -7,8 +7,8 @@ from enum import IntEnum, auto
 from typing import TYPE_CHECKING, List, Optional, Tuple
 
 import torch
-import triton
-import triton.language as tl
+from sglang.srt.triton_utils import triton
+from sglang.srt.triton_utils import tl
 
 from sglang.srt.distributed import (
     GroupCoordinator,
@@ -297,7 +297,7 @@ def initialize_dp_attention(
     _DpGatheredBufferWrapper.set_metadata(
         hidden_size=model_config.hidden_size,
         dtype=model_config.dtype,
-        device=torch.device(server_args.device),
+        device=torch.device("cpu" if server_args.device == "mlx" else server_args.device),
     )
 
 

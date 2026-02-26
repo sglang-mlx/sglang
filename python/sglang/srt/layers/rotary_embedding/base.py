@@ -70,6 +70,7 @@ class RotaryEmbedding(MultiPlatformOp):
             and not (_is_xpu)
             and not (_is_npu)
             and not (_is_musa)
+            and not (_is_mlx)
         ):
             # rotary_embedding from sglang.jit_kernel.pos_enc and vllm._custom_ops has the same implementation.
             # TODO: Test on different devices and remove this conditional.

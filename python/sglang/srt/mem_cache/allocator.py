@@ -23,8 +23,8 @@ import abc
 from typing import TYPE_CHECKING
 
 import torch
-import triton
-import triton.language as tl
+from sglang.srt.triton_utils import triton
+from sglang.srt.triton_utils import tl
 
 from sglang.srt.utils import get_bool_env_var, get_num_new_pages, next_power_of_2
 
@@ -46,7 +46,7 @@ class BaseTokenToKVPoolAllocator(abc.ABC):
         self.size = size
         self.page_size = page_size
         self.dtype = dtype
-        self.device = device
+        self.device = device if device != "mlx" else "cpu"
         self._kvcache = kvcache
         self.need_sort = need_sort
 

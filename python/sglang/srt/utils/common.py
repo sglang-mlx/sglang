@@ -81,7 +81,37 @@ import requests
 import torch
 import torch.distributed
 import torch.distributed as dist
-import triton
+
+# --- FORCED CPU OVERRIDE FOR MAC ---
+if hasattr(torch, "mps") and torch.backends.mps.is_available():
+    # 1. Force is_available to False so SGLang doesn't try to use MPS kernels
+    torch.backends.mps.is_available = lambda: False
+
+    # 2. Patch get_device_module to return CPU instead of MPS
+    # This fixes the AttributeError: module 'torch.mps' has no attribute 'Stream'
+    _orig_get_device_module = torch.get_device_module
+
+    def _patched_get_device_module(device=None):
+        if device is None:
+            try:
+                m = _orig_get_device_module()
+                # If it would have returned mps, return cpu instead
+                return torch.cpu if m.__name__ == "torch.mps" else m
+            except:
+                return torch.cpu
+
+        # If device is 'mlx' or 'mps', redirect to cpu
+        if device == "mlx" or device == "mps":
+            return torch.cpu
+
+        if isinstance(device, torch.device) and device.type in ["mps", "mlx"]:
+            return torch.cpu
+
+        return _orig_get_device_module(device)
+
+    torch.get_device_module = _patched_get_device_module
+# -----------------------------------
+from sglang.srt.triton_utils import triton
 import zmq
 from packaging import version as pkg_version
 from PIL import Image
@@ -567,6 +597,11 @@ def get_available_gpu_memory(
         total_free_memory = psutil.virtual_memory().available
         n_numa_node: int = len(get_cpu_ids_by_node())
         free_gpu_memory = round(total_free_memory / n_numa_node, 3)
+
+    elif device == "mlx":
+        total_free_memory = psutil.virtual_memory().available
+        free_gpu_memory = total_free_memory
+
     elif device == "npu":
         num_gpus = torch.npu.device_count()
         assert gpu_id < num_gpus
@@ -2055,6 +2090,9 @@ def get_device(device_id: Optional[int] = None) -> str:
         if device_id == None:
             return "musa"
         return "musa:{}".format(device_id)
+
+    if is_host_cpu_arm64():
+        return "cpu"
 
     raise RuntimeError("No accelerator (CUDA, XPU, HPU, NPU, MUSA) is available.")
 

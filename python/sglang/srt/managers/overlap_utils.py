@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 _is_npu = is_npu()
 
 
-@torch.compile(dynamic=True, backend=get_compiler_backend(), disable=_is_npu)
+@torch.compile(dynamic=True, backend=get_compiler_backend(), disable=(_is_npu or True))
 def _resolve_future_token_ids(input_ids, future_token_ids_map):
     input_ids[:] = torch.where(
         input_ids < 0,
@@ -56,7 +56,7 @@ class FutureMap:
         self.future_limit = max_running_requests * (3 + max_num_chunks)
         # Adding 2 * max_running_requests to future_limit ensures the buffer is sufficiently large.
         self.future_buffer_len = self.future_limit + 2 * max_running_requests
-        self.device = device
+        self.device = device if device != "mlx" else "cpu"
         self.spec_algo = spec_algo
 
         if self.spec_algo.is_none():

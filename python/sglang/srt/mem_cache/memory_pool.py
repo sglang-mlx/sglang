@@ -33,8 +33,8 @@ from typing import TYPE_CHECKING, Any, List, Optional, Tuple, Union
 
 import numpy as np
 import torch
-import triton
-import triton.language as tl
+from sglang.srt.triton_utils import triton
+from sglang.srt.triton_utils import tl
 
 from sglang.jit_kernel.kvcache import can_use_store_cache, store_cache
 from sglang.srt.configs.mamba_utils import BaseLinearStateParams
@@ -139,10 +139,10 @@ class ReqToTokenPool:
 
         self.size = size
         self.max_context_len = max_context_len
-        self.device = device
+        self.device = device if device != "mlx" else "cpu"
         with memory_saver_adapter.region(GPU_MEMORY_TYPE_KV_CACHE):
             self.req_to_token = torch.zeros(
-                (size, max_context_len), dtype=torch.int32, device=device
+                (size, max_context_len), dtype=torch.int32, device=self.device
             )
         self.free_slots = list(range(size))
 
@@ -614,7 +614,7 @@ class KVCache(abc.ABC):
         self.size = size
         self.page_size = page_size
         self.dtype = dtype
-        self.device = device
+        self.device = device if device != "mlx" else "cpu"
         if dtype in (torch.float8_e5m2, torch.float8_e4m3fn):
             # NOTE: Store as torch.uint8 because Tensor.index_put is not implemented for torch.float8_e5m2
             self.store_dtype = torch.uint8
