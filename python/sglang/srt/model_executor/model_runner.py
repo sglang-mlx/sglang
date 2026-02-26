@@ -86,6 +86,11 @@ from sglang.srt.eplb.expert_location import (
 )
 from sglang.srt.eplb.expert_location_updater import ExpertLocationUpdater
 from sglang.srt.hardware_backend.npu.graph_runner.npu_graph_runner import NPUGraphRunner
+
+try:
+    from sglang.srt.hardware_backend.mlx.mlx_graph_runner import MLXGraphRunner
+except ImportError:
+    MLXGraphRunner = None
 from sglang.srt.layers import deep_gemm_wrapper
 from sglang.srt.layers.attention.attention_registry import (
     ATTENTION_BACKENDS,
@@ -2121,10 +2126,11 @@ class ModelRunner(ModelRunnerKVCacheMixin):
         if self.server_args.model_impl.lower() == ModelImpl.MINDSPORE:
             return
 
-        if self.device != "cpu" and self.server_args.disable_cuda_graph:
+        if self.device == "mlx":
+            pass  # mx.compile always enabled (lightweight)
+        elif self.device != "cpu" and self.server_args.disable_cuda_graph:
             return
-
-        if self.device == "cpu" and not self.server_args.enable_torch_compile:
+        elif self.device == "cpu" and not self.server_args.enable_torch_compile:
             return
 
         tic = time.perf_counter()
@@ -2134,6 +2140,7 @@ class ModelRunner(ModelRunnerKVCacheMixin):
             {
                 "cpu": "cpu graph",
                 "npu": "npu graph",
+                "mlx": "mlx graph",
             },
         )
         logger.info(
@@ -2144,6 +2151,7 @@ class ModelRunner(ModelRunnerKVCacheMixin):
             {
                 "cpu": CPUGraphRunner,
                 "npu": NPUGraphRunner,
+                "mlx": MLXGraphRunner,
             },
         )
         self.graph_runner = graph_runners[self.device](self)
@@ -2444,11 +2452,12 @@ class ModelRunner(ModelRunnerKVCacheMixin):
         reinit_attn_backend: bool = False,
         split_forward_count: int = 1,
     ) -> ModelRunnerOutput:
-        mode_check = (
-            forward_batch.forward_mode.is_cpu_graph
-            if self.device == "cpu"
-            else forward_batch.forward_mode.is_cuda_graph
-        )
+        if self.device == "cpu":
+            mode_check = forward_batch.forward_mode.is_cpu_graph
+        elif self.device == "mlx":
+            mode_check = forward_batch.forward_mode.is_mlx_graph
+        else:
+            mode_check = forward_batch.forward_mode.is_cuda_graph
         can_run_graph = bool(
             mode_check()
             and self.graph_runner

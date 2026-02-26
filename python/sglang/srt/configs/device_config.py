@@ -11,9 +11,13 @@ class DeviceConfig:
     gpu_id: Optional[int]
 
     def __init__(self, device: str = "cuda", gpu_id: int = -1) -> None:
-        if device in ["cuda", "xpu", "hpu", "cpu", "npu", "musa"]:
+        if device in ["cuda", "xpu", "hpu", "cpu", "npu", "musa", "mlx"]:
             self.device_type = device
         else:
             raise RuntimeError(f"Not supported device type: {device}")
-        self.device = torch.device(self.device_type)
+        if device == "mlx":
+            # PyTorch doesn't recognize "mlx" as a device type, store as string
+            self.device = "mlx"
+        else:
+            self.device = torch.device(self.device_type)
         self.gpu_id = gpu_id
